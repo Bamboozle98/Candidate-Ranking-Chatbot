@@ -1,5 +1,7 @@
 import re
+import json
 from pathlib import Path
+from typing import Optional, Dict, Any, Tuple
 
 import streamlit as st
 import pandas as pd
@@ -9,7 +11,7 @@ from src.models.Default.features import add_basic_features
 from src.models.Default.ranker import initial_filter, score_candidates
 from src.models.Default.feedback import rerank_with_star
 
-# Optional local text generation (free/offline)
+# Optional local models (free/offline)
 from transformers import pipeline
 
 
@@ -25,12 +27,16 @@ def init_state():
     st.session_state.setdefault("ranked", None)
     st.session_state.setdefault("messages", [
         {"role": "assistant", "content": (
-            "I’m your ranking assistant. Try:\n"
+            "I’m your ranking assistant. You can type natural language, or commands like:\n"
             "- `rank`\n"
             "- `show top 10`\n"
             "- `star 123`\n"
             "- `rerank`\n"
             "- `set keywords: engineering manager`\n"
+            "\nExamples of natural language:\n"
+            "- “Rank candidates for engineering manager”\n"
+            "- “Star candidate 7 and rerank”\n"
+            "- “Show me the top 15”\n"
         )}
     ])
 
@@ -45,7 +51,6 @@ st.sidebar.header("Ranking Controls")
 REPO_ROOT = Path(__file__).resolve().parent
 CSV_PATH = REPO_ROOT / "data" / "raw" / "potential-talents - Aspiring human resources - seeking human resources.csv"
 
-# Your dataset may use either "connection" or "connections"
 REQUIRED_COLS = {"id", "job_title", "location"}  # handle connection separately
 
 @st.cache_data
@@ -98,13 +103,19 @@ use_local_llm = st.sidebar.checkbox(
     help="If off, responses are purely deterministic. If on, GPT-2 adds natural language explanations."
 )
 
+use_instruction_llm = st.sidebar.checkbox(
+    "Use local instruction model for natural language commands (recommended)",
+    value=True,
+    help="If on, the app will extract actions from natural language using a free local model."
+)
+
 
 # ----------------------------
-# Local model (cached) - optional
+# Local models (cached)
 # ----------------------------
 @st.cache_resource
-def get_local_llm():
-    # Free, local/offline. GPT-2 is small but works for simple text.
+def get_explainer_llm():
+    # Free, local/offline. GPT-2 is small but OK for light explanations.
     return pipeline(
         "text-generation",
         model="gpt2",
@@ -115,41 +126,18 @@ def get_local_llm():
 def llm_explain(prompt: str) -> str:
     if not use_local_llm:
         return ""
-    gen = get_local_llm()(prompt)
-    # transformers pipeline returns list of dicts
+    gen = get_explainer_llm()(prompt)
     return gen[0]["generated_text"]
 
 
-# ----------------------------
-# Intent router (your “tool use”)
-# ----------------------------
-def parse_intent(text: str):
-    t = text.strip()
-
-    # set keywords: ....
-    m = re.match(r"(?i)^\s*set\s+keywords\s*:\s*(.+)\s*$", t)
-    if m:
-        return ("set_keywords", m.group(1).strip())
-
-    # star 123
-    m = re.match(r"(?i)^\s*star\s+(\d+)\s*$", t)
-    if m:
-        return ("star", int(m.group(1)))
-
-    # show top 10
-    m = re.match(r"(?i)^\s*show\s+top\s+(\d+)\s*$", t)
-    if m:
-        return ("show", int(m.group(1)))
-
-    # rank / rerank
-    if re.search(r"(?i)\brerank\b", t):
-        return ("rerank", None)
-
-    if re.search(r"(?i)\brank\b", t):
-        return ("rank", None)
-
-    # fallback: chat/explain
-    return ("chat", t)
+@st.cache_resource
+def get_instruction_model():
+    # Instruction-tuned, better than GPT-2 for command extraction (free/offline).
+    return pipeline(
+        "text2text-generation",
+        model="google/flan-t5-base",
+        max_new_tokens=128,
+    )
 
 
 # ----------------------------
@@ -186,7 +174,7 @@ def do_star(candidate_id: int):
     msg = f"Starred candidate id={candidate_id}. Type `rerank` to update the list."
     if use_local_llm:
         msg += "\n\n" + llm_explain(
-            f"Explain in 1-2 sentences why starring a candidate helps rerank similar profiles."
+            "Explain in 1-2 sentences why starring a candidate helps rerank similar profiles."
         )
     return msg
 
@@ -228,42 +216,162 @@ def do_show(n: int):
 def do_set_keywords(new_kw: str):
     st.session_state.keywords = new_kw
     st.session_state.starred_id = None
-    # keep ranked list but note it may now be stale
     return f"Keywords updated to: {new_kw}. Type `rank` to compute a new list."
 
 
-def run_chat_turn(user_text: str) -> str:
-    intent, payload = parse_intent(user_text)
+# ----------------------------
+# Command extraction (rules + instruction model fallback)
+# ----------------------------
+ALLOWED_ACTIONS = {"rank", "rerank", "star", "show_top", "set_keywords"}
 
-    if intent == "set_keywords":
-        return do_set_keywords(payload)
-    if intent == "rank":
-        return do_rank()
-    if intent == "star":
-        return do_star(payload)
-    if intent == "rerank":
-        return do_rerank()
-    if intent == "show":
-        return do_show(payload)
+def rule_parse_command(text: str) -> Optional[Dict[str, Any]]:
+    t = text.strip()
 
-    # fallback chat: deterministic response (or GPT-2 if enabled)
-    if use_local_llm:
-        # Keep it very constrained—GPT-2 is not a reliable assistant
-        prompt = (
-            "You are a helpful assistant for a candidate ranking app. "
-            "Respond briefly and suggest a command like: rank, show top 10, star 123, rerank.\n"
-            f"User: {payload}\nAssistant:"
-        )
-        return llm_explain(prompt)
+    m = re.match(r"(?i)^\s*set\s+keywords\s*:\s*(.+)\s*$", t)
+    if m:
+        return {"action": "set_keywords", "keywords": m.group(1).strip()}
 
-    return (
-        "I can help with ranking commands. Try:\n"
-        "- `rank`\n"
-        "- `show top 10`\n"
-        "- `star 123`\n"
-        "- `rerank`\n"
-        "- `set keywords: <text>`"
+    m = re.match(r"(?i)^\s*star\s+(\d+)\s*$", t)
+    if m:
+        return {"action": "star", "candidate_id": int(m.group(1))}
+
+    m = re.match(r"(?i)^\s*show\s+top\s+(\d+)\s*$", t)
+    if m:
+        return {"action": "show_top", "n": int(m.group(1))}
+
+    if re.search(r"(?i)\brerank\b", t):
+        return {"action": "rerank"}
+
+    if re.search(r"(?i)\brank\b", t):
+        return {"action": "rank"}
+
+    return None
+
+def validate_command(cmd: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    if not isinstance(cmd, dict):
+        return None
+
+    action = cmd.get("action")
+    if action not in ALLOWED_ACTIONS:
+        return None
+
+    if action == "star":
+        cid = cmd.get("candidate_id")
+        if not isinstance(cid, int):
+            return None
+        return {"action": "star", "candidate_id": cid}
+
+    if action == "show_top":
+        n = cmd.get("n")
+        if not isinstance(n, int):
+            return None
+        n = max(1, min(50, n))
+        return {"action": "show_top", "n": n}
+
+    if action == "set_keywords":
+        kw = cmd.get("keywords")
+        if not isinstance(kw, str) or not kw.strip():
+            return None
+        return {"action": "set_keywords", "keywords": kw.strip()}
+
+    return {"action": action}
+
+def llm_parse_command(text: str) -> Optional[Dict[str, Any]]:
+    if not use_instruction_llm:
+        return None
+
+    gen = get_instruction_model()
+
+    prompt = (
+        "You are a command parser for a candidate ranking app.\n"
+        "Convert the user's message into EXACTLY one JSON object and nothing else.\n"
+        "Allowed actions:\n"
+        "- rank\n"
+        "- rerank\n"
+        "- star (requires candidate_id integer)\n"
+        "- show_top (requires n integer 1-50)\n"
+        "- set_keywords (requires keywords string)\n"
+        "\n"
+        f"User message:\n{text}\n\n"
+        "Return only JSON:\n"
     )
+
+    out = gen(prompt)[0]["generated_text"].strip()
+
+    # Extract a JSON object defensively
+    m = re.search(r"\{.*\}", out, flags=re.DOTALL)
+    if not m:
+        return None
+
+    try:
+        cmd = json.loads(m.group(0))
+    except Exception:
+        return None
+
+    return validate_command(cmd)
+
+def extract_command(text: str) -> Tuple[Optional[Dict[str, Any]], str]:
+    # 1) fast rules
+    cmd = rule_parse_command(text)
+    if cmd:
+        cmd = validate_command(cmd)
+        if cmd:
+            return cmd, "rules"
+
+    # 2) instruction model fallback
+    cmd = llm_parse_command(text)
+    if cmd:
+        return cmd, "llm"
+
+    return None, "none"
+
+
+# ----------------------------
+# Chat handling
+# ----------------------------
+def run_chat_turn(user_text: str) -> str:
+    cmd, source = extract_command(user_text)
+
+    if cmd is None:
+        # fallback “chat” behavior
+        if use_local_llm:
+            prompt = (
+                "You are a helpful assistant for a candidate ranking app. "
+                "Respond briefly and suggest a command like: rank, show top 10, star 123, rerank, set keywords: ...\n"
+                f"User: {user_text}\nAssistant:"
+            )
+            return llm_explain(prompt)
+
+        return (
+            "I didn’t understand that. Try:\n"
+            "- `rank`\n"
+            "- `show top 10`\n"
+            "- `star 123`\n"
+            "- `rerank`\n"
+            "- `set keywords: <text>`\n"
+            "Or natural language like: “Show me the top 15”"
+        )
+
+    action = cmd["action"]
+
+    if action == "set_keywords":
+        return do_set_keywords(cmd["keywords"])
+
+    if action == "rank":
+        # If user typed natural language like “rank for data scientist”, try to also update keywords
+        # (Optional light enhancement)
+        return do_rank()
+
+    if action == "star":
+        return do_star(cmd["candidate_id"])
+
+    if action == "rerank":
+        return do_rerank()
+
+    if action == "show_top":
+        return do_show(cmd["n"])
+
+    return "Unsupported action (this should not happen)."
 
 
 # ----------------------------
@@ -294,7 +402,7 @@ with right:
         with st.chat_message(m["role"]):
             st.markdown(m["content"])
 
-    user_msg = st.chat_input("Try: 'rank', 'show top 10', 'star 123', 'rerank', 'set keywords: ...'")
+    user_msg = st.chat_input("Try natural language: “Show me the top 10”, “Star 7 and rerank”, “Rank for HR manager”")
     if user_msg:
         st.session_state.messages.append({"role": "user", "content": user_msg})
         with st.chat_message("user"):
