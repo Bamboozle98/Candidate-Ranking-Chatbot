@@ -5,28 +5,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="075e5044-837b-4193-a269-13265c8437d6" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/8XPTuDF1AleElmm6.iml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/processed/PlaceHolder.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/raw/potential-talents - Aspiring human resources - seeking human resources.csv" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/reports/summary/PlaceHolder.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/data/LoadData.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/models/Default/Linear Regression.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/models/Default/artifacts/model.joblib" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/models/Default/artifacts/starred.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/models/Default/artifacts/vectorizer.joblib" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/models/Default/cli.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/models/Default/features.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/models/Default/feedback.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/models/Default/ranker.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/utils/class_reports.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.env.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/copilot.data.migration.agent.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/8XPTuDF1AleElmm6.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/8XPTuDF1AleElmm6.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/app.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -43,24 +27,38 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
+  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
+  "lastFilter": {
+    "state": "OPEN",
+    "assignee": "Bamboozle98"
+  }
+}]]></component>
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "https://github.com/Bamboozle98/8XPTuDF1AIeElmm6.git",
+    "accountId": "ede1649d-f08e-42e1-825d-3e80aaff0727"
+  }
+}]]></component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 2
 }</component>
   <component name="ProjectId" id="38MdL50yurggZKRPUyM0GpqC4kr" />
-  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Python.Linear Regression.executor&quot;: &quot;Run&quot;,
-    &quot;Python.cli.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/cbran/PycharmProjects/8XPTuDF1AleElmm6/data/raw&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Python.Linear Regression.executor": "Run",
+    "Python.cli.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "git-widget-placeholder": "master",
+    "last_opened_file_path": "C:/Users/cbran/PycharmProjects/8XPTuDF1AleElmm6/data/raw"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="C:\Users\cbran\PycharmProjects\8XPTuDF1AleElmm6\data\raw" />
@@ -70,7 +68,7 @@
       <recent name="C:\Users\cbran\PycharmProjects\8XPTuDF1AleElmm6\src\models\Default" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.cli">
+  <component name="RunManager" selected="Python.app">
     <configuration name="Linear Regression" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="8XPTuDF1AleElmm6" />
       <option name="ENV_FILES" value="" />
@@ -93,9 +91,31 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <configuration name="app" type="PythonConfigurationType" factoryName="Python" nameIsGenerated="true">
+      <module name="8XPTuDF1AleElmm6" />
+      <option name="ENV_FILES" value="$PROJECT_DIR$/.env.py" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/app.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <configuration name="cli" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="8XPTuDF1AleElmm6" />
-      <option name="ENV_FILES" value="" />
+      <option name="ENV_FILES" value="$PROJECT_DIR$/.env.py" />
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <envs>
@@ -115,6 +135,11 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <list>
+      <item itemvalue="Python.app" />
+      <item itemvalue="Python.cli" />
+      <item itemvalue="Python.Linear Regression" />
+    </list>
     <recent_temporary>
       <list>
         <item itemvalue="Python.cli" />
@@ -125,7 +150,7 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-python-sdk-8336bb23522e-31b6be0877a2-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-241.19072.16" />
+        <option value="bundled-python-sdk-1f77c24022e5-d902c0275401-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-252.26830.99" />
       </set>
     </attachedChunks>
   </component>

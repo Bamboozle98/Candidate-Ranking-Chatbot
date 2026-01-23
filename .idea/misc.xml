@@ -3,5 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="GradBigData" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="GradBigData" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="DataScience" project-jdk-type="Python SDK" />
 </project>
