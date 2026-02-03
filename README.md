@@ -98,33 +98,34 @@ T --> A
 A -->|short response| S
 
 %% =========================
-%% Styling (Color Coding)
+%% Styling (High-contrast)
 %% =========================
 
-%% UI Layer (Blue)
+%% UI Layer
 class U,S,TD ui;
 
-%% LLM Layer (Purple)
+%% LLM Layer
 class R,A llm;
 
-%% Control / Routing (Gray)
+%% Control Layer
 class T control;
 
-%% Ranking Pipeline (Green)
+%% Ranking Pipeline
 class RC,RR,SH,F,IF,SC,RS,NS ranking;
 
-%% Data Layer (Orange)
+%% Data Layer
 class D,DF,DR,M data;
 
 %% =========================
 %% Class Definitions
 %% =========================
 
-classDef ui fill:#e3f2fd,stroke:#1e88e5,stroke-width:2px;
-classDef llm fill:#ede7f6,stroke:#5e35b1,stroke-width:2px;
-classDef control fill:#eceff1,stroke:#455a64,stroke-width:2px;
-classDef ranking fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
-classDef data fill:#fff3e0,stroke:#ef6c00,stroke-width:2px;
+classDef ui fill:#e3f2fd,stroke:#1e88e5,stroke-width:2.5px,color:#000,font-weight:bold;
+classDef llm fill:#ede7f6,stroke:#5e35b1,stroke-width:2.5px,color:#000,font-weight:bold;
+classDef control fill:#eceff1,stroke:#37474f,stroke-width:2.5px,color:#000,font-weight:bold;
+classDef ranking fill:#e8f5e9,stroke:#2e7d32,stroke-width:2.5px,color:#000,font-weight:bold;
+classDef data fill:#fff3e0,stroke:#ef6c00,stroke-width:2.5px,color:#000,font-weight:bold;
+
 
 ```
 ---
