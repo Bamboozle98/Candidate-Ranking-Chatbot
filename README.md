@@ -34,6 +34,27 @@ the LLM orchestrates actions and explanations, while all ranking logic is handle
 
 
 ---
+
+## 🧠 System Architecture
+
+The diagram below provides a **high-level architectural overview** of the Candidate Ranking Chatbot, illustrating how user interactions flow through the system and how responsibilities are cleanly separated across components.
+
+The architecture is organized into distinct layers:
+
+- **User Interface Layer**:  
+  The Streamlit chat UI serves as the primary interaction point, accepting natural language queries and presenting ranked candidate tables.
+
+- **LLM Control Layer**:  
+  Large language models are used strictly for **intent interpretation, tool routing, and response formatting**. All tool decisions are returned as structured JSON and dispatched deterministically.
+
+- **Ranking Pipeline**:  
+  Core ranking logic—including feature engineering, filtering, scoring, normalization, and reranking—is implemented entirely in Python to ensure transparency and reproducibility.
+
+- **Data & State Management**:  
+  Candidate data, ranking results, and session state are maintained separately, enabling consistent reranking and persistent conversational context.
+
+This design ensures that **LLMs never make ranking decisions**, but instead orchestrate user intent over a fully deterministic and explainable ranking backend.
+
 ```mermaid
 flowchart LR
 
