@@ -1,415 +1,302 @@
-import re
 import json
-from pathlib import Path
-from typing import Optional, Dict, Any, Tuple
-
 import streamlit as st
+import time
 import pandas as pd
+import re
 
-# --- your existing scripts ---
-from src.models.Default.features import add_basic_features
-from src.models.Default.ranker import initial_filter, score_candidates
-from src.models.Default.feedback import rerank_with_star
+from src.models.Default.assistant import (
+    ollama_chat,
+    rank_candidates,
+    rerank_candidates,
+    SYSTEM_FORMATTER,   # adjust formatter in assistant.py as needed.
+)
 
-# Optional local models (free/offline)
-from transformers import pipeline
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+if "snapshots" not in st.session_state:
+    st.session_state.snapshots = []
+
+if "memory" not in st.session_state:
+    st.session_state.memory = {"job_title": "", "results": None, "df_scored": None}
+
+TOOL_SCHEMA = """
+You are a tool-router.
+Return ONLY valid JSON. No markdown. No extra text. No explanation.
+
+Output must match ONE of these exactly:
+
+{"tool":"rank","args":{"job_title":"...","filters":{},"top_k":25}}
+{"tool":"rerank","args":{"starred_id":123}}
+{"tool":"show","args":{"top_n":10}}
+{"tool":"set_job","args":{"job_title":"..."}}
+{"tool":"help","args":{}}
+
+Rules:
+- Use double quotes for all keys/strings.
+- args must always exist (even if empty).
+- Do not include any other keys.
+- If unsure, return {"tool":"help","args":{}}.
+- top_k must be an int 1..200
+- top_n must be an int 1..50
+"""
+
+DISPLAY_COLS = ["id", "job_title", "location", "connection", "fit"]
 
 
-# ----------------------------
-# Streamlit setup + state
-# ----------------------------
-st.set_page_config(page_title="Candidate Ranker + Free Chat", layout="wide")
+def build_display_df(results: list[dict], df_scored: pd.DataFrame) -> pd.DataFrame | None:
+    """
+    results: list like [{"candidate_id": 83, "score": 0.45}, ...] OR [{"id": 83, "score": ...}]
+    df_scored: dataframe with full candidate columns, including 'id'
+    """
+    if df_scored is None or not results:
+        return None
 
-def init_state():
-    st.session_state.setdefault("df", None)
-    st.session_state.setdefault("keywords", "aspiring human resources")
-    st.session_state.setdefault("starred_id", None)
-    st.session_state.setdefault("ranked", None)
-    st.session_state.setdefault("messages", [
-        {"role": "assistant", "content": (
-            "I’m your ranking assistant. You can type natural language, or commands like:\n"
-            "- `rank`\n"
-            "- `show top 10`\n"
-            "- `star 123`\n"
-            "- `rerank`\n"
-            "- `set keywords: engineering manager`\n"
-            "\nExamples of natural language:\n"
-            "- “Rank candidates for engineering manager”\n"
-            "- “Star candidate 7 and rerank”\n"
-            "- “Show me the top 15”\n"
-        )}
+    r = pd.DataFrame(results)
+
+    # Normalize the id field name
+    if "id" not in r.columns and "candidate_id" in r.columns:
+        r = r.rename(columns={"candidate_id": "id"})
+
+    if "id" not in r.columns:
+        raise ValueError("Ranking results must include 'id' (or 'candidate_id').")
+
+    if "id" not in df_scored.columns:
+        raise ValueError("df_scored must include an 'id' column to join on.")
+
+    # Merge so we get all candidate columns
+    merged = r.merge(df_scored, on="id", how="left")
+
+    # Add explicit rank column (1..N)
+    merged.insert(0, "rank", range(1, len(merged) + 1))
+
+    # Put the important columns up front (only keep those that exist)
+    front = ["rank"] + [c for c in DISPLAY_COLS if c in merged.columns]
+    # Keep score near the front if present
+    if "score" in merged.columns:
+        front = ["rank", "id", "score"] + [c for c in DISPLAY_COLS if c not in ("id",) and c in merged.columns]
+
+    rest = [c for c in merged.columns if c not in front]
+    merged = merged[front + rest]
+
+    return merged
+
+
+def extract_int_id(text: str) -> int | None:
+    m = re.search(r"\b(\d{1,9})\b", text)
+    return int(m.group(1)) if m else None
+
+
+def save_snapshot(tool_name: str, job_title: str, results: list[dict], label: str = "") -> int:
+    st.session_state.snapshots.append({
+        "ts": time.time(),
+        "label": label or tool_name,
+        "tool": tool_name,
+        "job_title": job_title,
+        "results": results[:10],  # store top rows for table display
+    })
+    return len(st.session_state.snapshots) - 1
+
+
+def safe_parse_json(text: str) -> dict:
+    # model must output JSON only
+    start = text.find("{")
+    end = text.rfind("}")
+    if start == -1 or end == -1:
+        raise ValueError(f"Model did not return JSON: {text[:200]}")
+    return json.loads(text[start:end+1])
+
+def tool_router(user_text: str, memory: dict) -> dict:
+    # Provide a tiny state summary to help tool decisions
+    state_summary = {
+        "known_job_title": memory.get("job_title", ""),
+        "have_results": memory.get("results") is not None,
+        "num_results": len(memory["results"]) if memory.get("results") else 0,
+    }
+    raw = ollama_chat([
+        {"role":"system","content":TOOL_SCHEMA},
+        {"role":"user","content":json.dumps({"user_text": user_text, "state": state_summary})}
+    ])
+    return safe_parse_json(raw)
+
+def assistant_reply(user_text: str, tool_name: str, tool_result: dict) -> str:
+    # The assistant can write naturally but can’t invent candidate details. Assistant settings are in the FORMATTER variable in the assistant.py
+    payload = {
+        "user_text": user_text,
+        "tool": tool_name,
+        "tool_result": tool_result,
+    }
+    return ollama_chat([
+        {"role":"system","content":SYSTEM_FORMATTER},
+        {"role":"user","content":json.dumps(payload)}
     ])
 
-init_state()
+st.set_page_config(page_title="Candidate Rank Chatbot", layout="wide")
+st.title("Candidate Rank Chatbot (Tools + Ollama)")
+
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+if "memory" not in st.session_state:
+    st.session_state.memory = {"job_title": "", "results": None, "df_scored": None}
+
+# render chat history
+# render chat history (ONLY ONCE)
+for m in st.session_state.messages:
+    with st.chat_message(m["role"]):
+        st.markdown(m["content"])
+
+        if m["role"] == "assistant" and m.get("snapshot_idx") is not None:
+            snap = st.session_state.snapshots[m["snapshot_idx"]]
+            st.caption(f"{snap['label']} • {snap['job_title']}")
+            st.dataframe(snap["results"], use_container_width=True)
 
 
-# ----------------------------
-# Data loading (static repo path)
-# ----------------------------
-st.sidebar.header("Ranking Controls")
+prompt = st.chat_input("Ask me to rank candidates, star an id, rerank, show top N...")
 
-REPO_ROOT = Path(__file__).resolve().parent
-CSV_PATH = REPO_ROOT / "data" / "raw" / "potential-talents - Aspiring human resources - seeking human resources.csv"
+if prompt:
+    # show user message
+    st.session_state.messages.append({"role":"user","content":prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
 
-REQUIRED_COLS = {"id", "job_title", "location"}  # handle connection separately
-
-@st.cache_data
-def load_candidates(csv_path: Path) -> pd.DataFrame:
-    df_raw = pd.read_csv(csv_path)
-
-    missing = REQUIRED_COLS - set(df_raw.columns)
-    if missing:
-        raise ValueError(f"Missing required columns in CSV: {sorted(missing)}")
-
-    # Normalize connection column name to match your pipeline expectations
-    if "connections" in df_raw.columns and "connection" not in df_raw.columns:
-        df_raw = df_raw.rename(columns={"connections": "connection"})
-
-    if "connection" not in df_raw.columns:
-        raise ValueError("CSV must contain 'connection' or 'connections' column.")
-
-    return add_basic_features(df_raw)
-
-try:
-    st.session_state.df = load_candidates(CSV_PATH)
-    st.sidebar.success(f"Loaded {len(st.session_state.df)} candidates from {CSV_PATH.name}")
-except FileNotFoundError:
-    st.session_state.df = None
-    st.sidebar.error(f"CSV not found at: {CSV_PATH}")
-except Exception as e:
-    st.session_state.df = None
-    st.sidebar.error(f"Failed to load CSV: {e}")
-
-# Controls
-st.sidebar.text_input("Role keywords", key="keywords")
-
-alpha = st.sidebar.slider(
-    "Star influence (alpha)",
-    0.0, 1.0, 0.4, 0.05,
-    help="Lower alpha = more like starred candidate; higher alpha = more baseline score."
-)
-
-filter_tau = st.sidebar.slider(
-    "Relevance filter threshold (tau)",
-    0.0, 0.5, 0.08, 0.01,
-    help="Candidates below this keyword similarity are filtered out."
-)
-
-top_k = st.sidebar.slider("Top K to display", 5, 100, 25, 5)
-
-use_local_llm = st.sidebar.checkbox(
-    "Use local GPT-2 for explanations (optional)",
-    value=False,
-    help="If off, responses are purely deterministic. If on, GPT-2 adds natural language explanations."
-)
-
-use_instruction_llm = st.sidebar.checkbox(
-    "Use local instruction model for natural language commands (recommended)",
-    value=True,
-    help="If on, the app will extract actions from natural language using a free local model."
-)
-
-
-# ----------------------------
-# Local models (cached)
-# ----------------------------
-@st.cache_resource
-def get_explainer_llm():
-    # Free, local/offline. GPT-2 is small but OK for light explanations.
-    return pipeline(
-        "text-generation",
-        model="gpt2",
-        max_new_tokens=120,
-        temperature=0.3,
-    )
-
-def llm_explain(prompt: str) -> str:
-    if not use_local_llm:
-        return ""
-    gen = get_explainer_llm()(prompt)
-    return gen[0]["generated_text"]
-
-
-@st.cache_resource
-def get_instruction_model():
-    # Instruction-tuned, better than GPT-2 for command extraction (free/offline).
-    return pipeline(
-        "text2text-generation",
-        model="google/flan-t5-base",
-        max_new_tokens=128,
-    )
-
-
-# ----------------------------
-# Deterministic “tools” (no LangChain)
-# ----------------------------
-def do_rank():
-    if st.session_state.df is None:
-        return "No dataset loaded."
-
-    df = st.session_state.df
-    kw = st.session_state.keywords
-
-    scored = score_candidates(df, kw, model_path=None)
-    filtered = initial_filter(scored, kw, tau=filter_tau)
-
-    st.session_state.ranked = filtered
-    st.session_state.starred_id = None
-
-    msg = f"Ranked {len(filtered)} candidates for keywords='{kw}'."
-    if use_local_llm:
-        msg += "\n\n" + llm_explain(
-            f"Explain briefly what it means to rank candidates by keyword relevance. Keywords: {kw}"
-        )
-    return msg
-
-def do_star(candidate_id: int):
-    if st.session_state.ranked is None:
-        return "No ranking exists yet. Type `rank` first."
-
-    if candidate_id not in set(st.session_state.ranked["id"]):
-        return f"Candidate id={candidate_id} not found in the current ranked list."
-
-    st.session_state.starred_id = candidate_id
-    msg = f"Starred candidate id={candidate_id}. Type `rerank` to update the list."
-    if use_local_llm:
-        msg += "\n\n" + llm_explain(
-            "Explain in 1-2 sentences why starring a candidate helps rerank similar profiles."
-        )
-    return msg
-
-def do_rerank():
-    if st.session_state.ranked is None:
-        return "No ranking exists yet. Type `rank` first."
-    if st.session_state.starred_id is None:
-        return "No starred candidate yet. Type `star <id>` first."
-
+    # decide tool
     try:
-        st.session_state.ranked = rerank_with_star(
-            st.session_state.ranked,
-            starred_id=st.session_state.starred_id,
-            keywords=st.session_state.keywords,
-            alpha=alpha
-        )
-        msg = f"Re-ranked using starred_id={st.session_state.starred_id} (alpha={alpha})."
-        if use_local_llm:
-            msg += "\n\n" + llm_explain(
-                "Briefly explain how blending baseline score and similarity-to-star changes ordering."
-            )
-        return msg
+        action = tool_router(prompt, st.session_state.memory)
+        # This is a function to display tool calling for debugging purposes
+        # st.sidebar.json(action)
     except Exception as e:
-        return f"Rerank failed: {e}"
-
-def do_show(n: int):
-    if st.session_state.ranked is None:
-        return "No ranking exists yet. Type `rank` first."
-
-    n = int(max(1, min(50, n)))
-    df = st.session_state.ranked.head(n).copy()
-
-    cols = ["id", "job_title", "location", "connection"]
-    score_cols = [c for c in ["final_score", "base_fit", "kw_sim", "star_sim"] if c in df.columns]
-    cols = cols + score_cols
-
-    return df[cols].to_markdown(index=False)
-
-def do_set_keywords(new_kw: str):
-    st.session_state.keywords = new_kw
-    st.session_state.starred_id = None
-    return f"Keywords updated to: {new_kw}. Type `rank` to compute a new list."
-
-
-# ----------------------------
-# Command extraction (rules + instruction model fallback)
-# ----------------------------
-ALLOWED_ACTIONS = {"rank", "rerank", "star", "show_top", "set_keywords"}
-
-def rule_parse_command(text: str) -> Optional[Dict[str, Any]]:
-    t = text.strip()
-
-    m = re.match(r"(?i)^\s*set\s+keywords\s*:\s*(.+)\s*$", t)
-    if m:
-        return {"action": "set_keywords", "keywords": m.group(1).strip()}
-
-    m = re.match(r"(?i)^\s*star\s+(\d+)\s*$", t)
-    if m:
-        return {"action": "star", "candidate_id": int(m.group(1))}
-
-    m = re.match(r"(?i)^\s*show\s+top\s+(\d+)\s*$", t)
-    if m:
-        return {"action": "show_top", "n": int(m.group(1))}
-
-    if re.search(r"(?i)\brerank\b", t):
-        return {"action": "rerank"}
-
-    if re.search(r"(?i)\brank\b", t):
-        return {"action": "rank"}
-
-    return None
-
-def validate_command(cmd: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    if not isinstance(cmd, dict):
-        return None
-
-    action = cmd.get("action")
-    if action not in ALLOWED_ACTIONS:
-        return None
-
-    if action == "star":
-        cid = cmd.get("candidate_id")
-        if not isinstance(cid, int):
-            return None
-        return {"action": "star", "candidate_id": cid}
-
-    if action == "show_top":
-        n = cmd.get("n")
-        if not isinstance(n, int):
-            return None
-        n = max(1, min(50, n))
-        return {"action": "show_top", "n": n}
-
-    if action == "set_keywords":
-        kw = cmd.get("keywords")
-        if not isinstance(kw, str) or not kw.strip():
-            return None
-        return {"action": "set_keywords", "keywords": kw.strip()}
-
-    return {"action": action}
-
-def llm_parse_command(text: str) -> Optional[Dict[str, Any]]:
-    if not use_instruction_llm:
-        return None
-
-    gen = get_instruction_model()
-
-    prompt = (
-        "You are a command parser for a candidate ranking app.\n"
-        "Convert the user's message into EXACTLY one JSON object and nothing else.\n"
-        "Allowed actions:\n"
-        "- rank\n"
-        "- rerank\n"
-        "- star (requires candidate_id integer)\n"
-        "- show_top (requires n integer 1-50)\n"
-        "- set_keywords (requires keywords string)\n"
-        "\n"
-        f"User message:\n{text}\n\n"
-        "Return only JSON:\n"
-    )
-
-    out = gen(prompt)[0]["generated_text"].strip()
-
-    # Extract a JSON object defensively
-    m = re.search(r"\{.*\}", out, flags=re.DOTALL)
-    if not m:
-        return None
-
-    try:
-        cmd = json.loads(m.group(0))
-    except Exception:
-        return None
-
-    return validate_command(cmd)
-
-def extract_command(text: str) -> Tuple[Optional[Dict[str, Any]], str]:
-    # 1) fast rules
-    cmd = rule_parse_command(text)
-    if cmd:
-        cmd = validate_command(cmd)
-        if cmd:
-            return cmd, "rules"
-
-    # 2) instruction model fallback
-    cmd = llm_parse_command(text)
-    if cmd:
-        return cmd, "llm"
-
-    return None, "none"
-
-
-# ----------------------------
-# Chat handling
-# ----------------------------
-def run_chat_turn(user_text: str) -> str:
-    cmd, source = extract_command(user_text)
-
-    if cmd is None:
-        # fallback “chat” behavior
-        if use_local_llm:
-            prompt = (
-                "You are a helpful assistant for a candidate ranking app. "
-                "Respond briefly and suggest a command like: rank, show top 10, star 123, rerank, set keywords: ...\n"
-                f"User: {user_text}\nAssistant:"
-            )
-            return llm_explain(prompt)
-
-        return (
-            "I didn’t understand that. Try:\n"
-            "- `rank`\n"
-            "- `show top 10`\n"
-            "- `star 123`\n"
-            "- `rerank`\n"
-            "- `set keywords: <text>`\n"
-            "Or natural language like: “Show me the top 15”"
-        )
-
-    action = cmd["action"]
-
-    if action == "set_keywords":
-        return do_set_keywords(cmd["keywords"])
-
-    if action == "rank":
-        # If user typed natural language like “rank for data scientist”, try to also update keywords
-        # (Optional light enhancement)
-        return do_rank()
-
-    if action == "star":
-        return do_star(cmd["candidate_id"])
-
-    if action == "rerank":
-        return do_rerank()
-
-    if action == "show_top":
-        return do_show(cmd["n"])
-
-    return "Unsupported action (this should not happen)."
-
-
-# ----------------------------
-# UI layout
-# ----------------------------
-st.title("Candidate Ranking + Chatbot (Free / Offline)")
-
-left, right = st.columns([1.25, 1])
-
-with left:
-    st.subheader("Ranked Candidates")
-    if st.session_state.ranked is None:
-        st.info("No ranking yet. Use chat: `rank`.")
-    else:
-        view = st.session_state.ranked.head(top_k).copy()
-        base_cols = ["id", "job_title", "location", "connection"]
-        score_cols = [c for c in ["final_score", "base_fit", "kw_sim", "star_sim"] if c in view.columns]
-        st.dataframe(view[base_cols + score_cols], use_container_width=True)
-
-        st.caption(
-            f"keywords='{st.session_state.keywords}' | starred_id={st.session_state.starred_id} | "
-            f"tau={filter_tau} | alpha={alpha}"
-        )
-
-with right:
-    st.subheader("Chat")
-    for m in st.session_state.messages:
-        with st.chat_message(m["role"]):
-            st.markdown(m["content"])
-
-    user_msg = st.chat_input("Try natural language: “Show me the top 10”, “Star 7 and rerank”, “Rank for HR manager”")
-    if user_msg:
-        st.session_state.messages.append({"role": "user", "content": user_msg})
-        with st.chat_message("user"):
-            st.markdown(user_msg)
-
+        err = f"Tool routing failed: {e}"
+        st.session_state.messages.append({"role":"assistant","content":err})
         with st.chat_message("assistant"):
-            resp = run_chat_turn(user_msg)
-            st.markdown(resp)
+            st.error(err)
+        st.stop()
 
-        st.session_state.messages.append({"role": "assistant", "content": resp})
+    tool = action.get("tool")
+    args = action.get("args", {})
+
+    tool_result = {"ok": True, "tool": tool, "args": args}
+
+    # execute tool
+    try:
+        if tool == "help":
+            tool_result["ok"] = True
+            tool_result["message"] = (
+                "Tell me a job title to rank for (e.g., 'HR Generalist') and optionally constraints "
+                "(location, remote, etc.). You can also say 'show top 10' or 'rerank star 123'."
+            )
+
+        elif tool == "set_job":
+            st.session_state.memory["job_title"] = args.get("job_title","").strip()
+            tool_result["job_title"] = st.session_state.memory["job_title"]
+
+        elif tool == "rank":
+            job_title = args.get("job_title") or st.session_state.memory.get("job_title","")
+            job_title = (job_title or "").strip()
+            if not job_title:
+                tool = "help"
+                tool_result = {"ok": True, "tool":"help", "message":"What job title should I rank for?"}
+            else:
+                filters = args.get("filters", {}) or {}
+                top_k = int(args.get("top_k", 25))
+                top_k = min(max(top_k, 1), 200)
+
+                results, df_scored = rank_candidates(job_title, filters, top_k)
+                st.session_state.memory["job_title"] = job_title
+                st.session_state.memory["results"] = results
+                st.session_state.memory["df_scored"] = df_scored
+
+                tool_result["job_title"] = job_title
+                tool_result["num_results"] = len(results)
+                tool_result["top10"] = results[:10]
+                save_snapshot("rank", job_title, results, label=f"rank top {top_k}")
+
+        elif tool == "show":
+            if not st.session_state.memory.get("results"):
+                tool_result = {"ok": False, "error": "No results yet. Ask me to rank first."}
+            else:
+                top_n = int(args.get("top_n", 10))
+                top_n = min(max(top_n, 1), 50)
+                tool_result["top"] = st.session_state.memory["results"][:top_n]
+
+        elif tool == "rerank":
+            n = extract_int_id(prompt)
+            if n is not None:
+                args["starred_id"] = n
+            if "score" not in st.session_state.memory["df_scored"].columns:
+                tool_result = {"ok": False,
+                               "error": "Cannot rerank because df_scored has no 'score' column. Rank first (or fix scoring pipeline)."}
+            else:
+                starred_id = int(args.get("starred_id"))
+                ...
+
+            if st.session_state.memory.get("df_scored") is None:
+                tool_result = {"ok": False, "error": "No scored dataframe yet. Rank first."}
+            else:
+                starred_id = int(args.get("starred_id"))
+                job_title = st.session_state.memory.get("job_title","")
+                results, df_r = rerank_candidates(job_title, st.session_state.memory["df_scored"], starred_id)
+                st.session_state.memory["results"] = results
+                st.session_state.memory["df_scored"] = df_r
+                tool_result["starred_id"] = starred_id
+                tool_result["top10"] = results[:10]
+                save_snapshot("rerank", job_title, results, label=f"rerank star {starred_id}")
+
+        else:
+            tool_result = {"ok": False, "error": f"Unknown tool: {tool}"}
+
+    except Exception as e:
+        tool_result = {"ok": False, "error": str(e), "tool": tool, "args": args}
+
+    # ----------------------------
+    # Assistant output (NO debug JSON, NO double render)
+    # ----------------------------
+
+    # Create a snapshot only when we have something table-worthy
+    snap_idx = None
+
+    if tool in ("rank", "rerank") and tool_result.get("ok") and st.session_state.memory.get("results"):
+        display_df = build_display_df(
+            st.session_state.memory["results"],
+            st.session_state.memory.get("df_scored"),
+        )
+
+        if display_df is not None:
+            snap_idx = save_snapshot(
+                tool_name=tool,
+                job_title=st.session_state.memory.get("job_title", ""),
+                results=display_df.to_dict("records"),
+                label=f"{tool} • {st.session_state.memory.get('job_title', '')}"
+            )
+
+    elif tool == "show" and tool_result.get("ok") and tool_result.get("top"):
+        display_df = build_display_df(tool_result["top"], st.session_state.memory.get("df_scored"))
+
+        if display_df is not None:
+            snap_idx = save_snapshot(
+                tool_name="show",
+                job_title=st.session_state.memory.get("job_title", ""),
+                results=display_df.to_dict("records"),
+                label=f"show top {len(tool_result['top'])}"
+            )
+
+    # Now produce assistant text (keep it short; tables show details)
+    with st.chat_message("assistant"):
+        try:
+            reply = assistant_reply(prompt, tool, tool_result)
+        except Exception as e:
+            reply = f"Sorry — I hit an error formatting the response: {e}"
+
+        st.markdown(reply)
+
+        # If we made a snapshot, show it right now
+        if snap_idx is not None:
+            snap = st.session_state.snapshots[snap_idx]
+            st.caption(f"{snap['label']}")
+            st.dataframe(snap["results"], use_container_width=True)
+
+    # Append exactly ONCE (this is what fixes double-printing)
+    msg = {"role": "assistant", "content": reply}
+    if snap_idx is not None:
+        msg["snapshot_idx"] = snap_idx
+    st.session_state.messages.append(msg)
+

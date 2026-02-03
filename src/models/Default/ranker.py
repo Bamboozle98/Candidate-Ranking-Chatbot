@@ -12,6 +12,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 TEXT_COL = "job_title_clean"
 
+
 def build_pipeline():
     # TF-IDF for job title + numeric features
     text = Pipeline([
@@ -32,6 +33,7 @@ def build_pipeline():
 
     return Pipeline([("pre", pre), ("clf", clf)])
 
+
 def keyword_relevance_scores(df: pd.DataFrame, keywords: str) -> np.ndarray:
     """Return cosine similarity between each title and the keywords."""
     vec = TfidfVectorizer(ngram_range=(1,2), min_df=1)
@@ -40,12 +42,14 @@ def keyword_relevance_scores(df: pd.DataFrame, keywords: str) -> np.ndarray:
     sims = cosine_similarity(X, q).ravel()
     return sims
 
+
 def initial_filter(df: pd.DataFrame, keywords: str, tau: float = 0.08) -> pd.DataFrame:
     """Hard gate: remove candidates whose title is not relevant to the role query."""
     sims = keyword_relevance_scores(df, keywords)
     out = df.copy()
     out["kw_sim"] = sims
     return out[out["kw_sim"] >= tau].sort_values("kw_sim", ascending=False)
+
 
 def fit_baseline_model(df: pd.DataFrame, y_col: str, model_path: str):
     """Train baseline logistic regression when you have labels (even a few)."""
@@ -54,6 +58,7 @@ def fit_baseline_model(df: pd.DataFrame, y_col: str, model_path: str):
     y = df[y_col].astype(int)
     pipe.fit(X, y)
     dump(pipe, model_path)
+
 
 def score_candidates(df: pd.DataFrame, keywords: str, model_path: str | None = None) -> pd.DataFrame:
     out = df.copy()
