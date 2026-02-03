@@ -36,44 +36,96 @@ the LLM orchestrates actions and explanations, while all ranking logic is handle
 ---
 ```mermaid
 flowchart LR
-    %% UI Layer
-    U[User] -->|Natural Language| S[Streamlit Chat UI]
 
-    %% Chat & State Layer
-    S -->|prompt| R[Tool Router LLM]
-    S <-->|messages + tables| S
+%% =========================
+%% Nodes
+%% =========================
 
-    %% Tool Routing
-    R -->|JSON tool call| T[Tool Dispatcher]
+U[User]
+S[Streamlit Chat UI]
 
-    %% Ranking Pipeline
-    T -->|rank| RC[rank_candidates]
-    T -->|rerank| RR[rerank_candidates]
-    T -->|show| SH[Result Selector]
+R[Tool Router LLM]
+A[Formatter LLM]
 
-    %% Ranking internals
-    RC --> D[Candidate CSV Dataset]
-    RC --> F[Feature Engineering]
-    F --> IF[Initial Filter]
-    IF --> SC[Scoring Engine]
-    SC --> NS[Normalize Scores]
+T[Tool Dispatcher]
 
-    RR --> RS[Rerank w/ Star]
-    RS --> NS
+RC[rank_candidates]
+RR[rerank_candidates]
+SH[Result Selector]
 
-    %% Data Products
-    NS --> DF[Scored DataFrame]
-    DF --> DR[Results: id + score]
+D[Candidate CSV Dataset]
+F[Feature Engineering]
+IF[Initial Filter]
+SC[Scoring Engine]
+NS[Normalize Scores]
+RS[Rerank with Star]
 
-    %% Memory & Display
-    DR --> M[Session Memory]
-    DF --> M
-    M --> TD[Display Table Builder]
-    TD --> S
+DF[Scored DataFrame]
+DR[Results: id + score]
+M[Session Memory]
+TD[Display Table Builder]
 
-    %% Assistant Narrative
-    T --> A[Formatter LLM]
-    A --> S
+%% =========================
+%% Flow
+%% =========================
+
+U -->|Natural Language| S
+S -->|prompt| R
+R -->|JSON tool call| T
+
+T -->|rank| RC
+T -->|rerank| RR
+T -->|show| SH
+
+RC --> D
+RC --> F
+F --> IF
+IF --> SC
+SC --> NS
+
+RR --> RS
+RS --> NS
+
+NS --> DF
+DF --> DR
+
+DR --> M
+DF --> M
+M --> TD
+TD --> S
+
+T --> A
+A -->|short response| S
+
+%% =========================
+%% Styling (Color Coding)
+%% =========================
+
+%% UI Layer (Blue)
+class U,S,TD ui;
+
+%% LLM Layer (Purple)
+class R,A llm;
+
+%% Control / Routing (Gray)
+class T control;
+
+%% Ranking Pipeline (Green)
+class RC,RR,SH,F,IF,SC,RS,NS ranking;
+
+%% Data Layer (Orange)
+class D,DF,DR,M data;
+
+%% =========================
+%% Class Definitions
+%% =========================
+
+classDef ui fill:#e3f2fd,stroke:#1e88e5,stroke-width:2px;
+classDef llm fill:#ede7f6,stroke:#5e35b1,stroke-width:2px;
+classDef control fill:#eceff1,stroke:#455a64,stroke-width:2px;
+classDef ranking fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
+classDef data fill:#fff3e0,stroke:#ef6c00,stroke-width:2px;
+
 ```
 ---
 
