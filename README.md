@@ -228,19 +228,19 @@ Tables are treated as the **source of truth**, while chat responses serve as bri
 
 ```pgsql
 ├── app.py                         # Streamlit application entrypoint
-├── requirements.txt               # Python dependencies
+├── requirements.txt               # Python dependencies for streamlit specifically
 ├── README.md                      # Project documentation
 ├── data/
-│   └── candidates.csv             # Candidate dataset
+│   └── potential-talents - Aspiring human resources - seeking human resources.csv            # Candidate dataset
 ├── src/
-│   ├── models/
-│   │   ├── assistant.py           # LLM tool router and formatter
-│   │   ├── ranker.py               # Ranking pipeline
-│   │   ├── feedback.py             # Star-based reranking logic
-│   │   └── scoring.py              # Scoring and normalization
-│   ├── data/
-│   │   └── LoadData.py             # Data loading utilities
-│   └── features/
-│       └── feature_engineering.py  # Feature construction helpers
+│   └── models/
+│       └── ├── Default/
+│           ├── assistant.py           # LLM tool router and formatter
+│           ├── cli.py                 # main file for original standalone ranking system
+│           ├── features.py             # Standardizing data entries for processing
+│           ├── feedback.py             # Star-based reranking logic
+│           ├── Linear Regression.py    # LR model for processing candidates
+│           └── ranking.py              # Ranking pipeline
 └── notebooks/
-    └── exploration.ipynb           # Analysis and experimentation
+    └── modeling      
+        └── model_diagram,png           # Modeling Image
