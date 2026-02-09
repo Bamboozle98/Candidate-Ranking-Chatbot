@@ -244,3 +244,19 @@ Tables are treated as the **source of truth**, while chat responses serve as bri
 └── notebooks/
     └── modeling      
         └── model_diagram,png           # Modeling Image
+```
+
+## 🚀 Future Work & Extensions
+
+Potential extensions to this system include:
+
+- **Learned ranking models** integrated as optional scoring components while preserving deterministic control
+- **Richer feedback signals**, such as multiple positive or negative references and attribute-level preferences
+- **Improved similarity metrics** using text embeddings or network-aware features
+- **Enhanced explanations**, including per-feature score breakdowns for auditability
+- **Scalability improvements**, such as database-backed datasets and pagination for large candidate pools
+
+These additions build naturally on the current architecture without changing its core principle:  
+**LLMs orchestrate interactions, while ranking decisions remain transparent and data-driven.**
+
+---
