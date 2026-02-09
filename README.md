@@ -57,66 +57,12 @@ This design ensures that **LLMs never make ranking decisions**, but instead orch
 
 ```mermaid
 flowchart LR
-
-%% =========================
-%% Nodes
-%% =========================
-
-U[User]
-S[Streamlit Chat UI]
-
-R[Tool Router LLM]
-A[Formatter LLM]
-
-T[Tool Dispatcher]
-
-RC[rank_candidates]
-RR[rerank_candidates]
-SH[Result Selector]
-
-D[Candidate CSV Dataset]
-F[Feature Engineering]
-IF[Initial Filter]
-SC[Scoring Engine]
-NS[Normalize Scores]
-RS[Rerank with Star]
-
-DF[Scored DataFrame]
-DR[Results: id + score]
-M[Session Memory]
-TD[Display Table Builder]
-
-%% =========================
-%% Flow
-%% =========================
-
-U -->|Natural Language| S
-S -->|prompt| R
-R -->|JSON tool call| T
-
-T -->|rank| RC
-T -->|rerank| RR
-T -->|show| SH
-
-RC --> D
-RC --> F
-F --> IF
-IF --> SC
-SC --> NS
-
-RR --> RS
-RS --> NS
-
-NS --> DF
-DF --> DR
-
-DR --> M
-DF --> M
-M --> TD
-TD --> S
-
-T --> A
-A -->|short response| S
+U[User] --> S[Streamlit Chat UI]
+S --> R[LLM Router]
+R --> T[Tools]
+T --> P[Ranking Pipeline + Data]
+P --> S
+R --> S
 
 %% =========================
 %% Styling (High-contrast)

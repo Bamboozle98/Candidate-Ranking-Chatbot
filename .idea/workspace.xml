@@ -4,17 +4,8 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="075e5044-837b-4193-a269-13265c8437d6" name="Changes" comment="Initial Push">
-      <change afterPath="$PROJECT_DIR$/alt_app.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/models/Default/assistant.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/8XPTuDF1AleElmm6.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/8XPTuDF1AleElmm6.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+    <list default="true" id="075e5044-837b-4193-a269-13265c8437d6" name="Changes" comment="Requirements push">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/app.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/processed/PlaceHolder.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/models/Default/artifacts/starred.json" beforeDir="false" afterPath="$PROJECT_DIR$/src/models/Default/artifacts/starred.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/models/Default/ranker.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/models/Default/ranker.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -58,13 +49,13 @@
     &quot;Python.cli.executor&quot;: &quot;Run&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/cbran/PycharmProjects/8XPTuDF1AleElmm6/data/raw&quot;
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/cbran/PycharmProjects/8XPTuDF1AleElmm6&quot;
   }
 }</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
-      <recent name="C:\Users\cbran\PycharmProjects\8XPTuDF1AleElmm6\data\raw" />
       <recent name="C:\Users\cbran\PycharmProjects\8XPTuDF1AleElmm6" />
+      <recent name="C:\Users\cbran\PycharmProjects\8XPTuDF1AleElmm6\data\raw" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
       <recent name="C:\Users\cbran\PycharmProjects\8XPTuDF1AleElmm6" />
@@ -139,6 +130,68 @@
       <option name="presentableId" value="Default" />
       <updated>1768613314938</updated>
     </task>
+    <task id="LOCAL-00001" summary="Initial Push">
+      <option name="closed" value="true" />
+      <created>1770149663777</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1770149663777</updated>
+    </task>
+    <task id="LOCAL-00002" summary="Initial Push">
+      <option name="closed" value="true" />
+      <created>1770149894931</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1770149894931</updated>
+    </task>
+    <task id="LOCAL-00003" summary="Initial Push">
+      <option name="closed" value="true" />
+      <created>1770150072533</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1770150072533</updated>
+    </task>
+    <task id="LOCAL-00004" summary="Initial Push">
+      <option name="closed" value="true" />
+      <created>1770150210230</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1770150210230</updated>
+    </task>
+    <task id="LOCAL-00005" summary="Requirements push">
+      <option name="closed" value="true" />
+      <created>1770150909680</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1770150909680</updated>
+    </task>
+    <task id="LOCAL-00006" summary="Requirements push">
+      <option name="closed" value="true" />
+      <created>1770151067299</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1770151067299</updated>
+    </task>
+    <task id="LOCAL-00007" summary="Requirements push">
+      <option name="closed" value="true" />
+      <created>1770151197485</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1770151197485</updated>
+    </task>
+    <option name="localTasksCounter" value="8" />
     <servers />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="Initial Push" />
+    <MESSAGE value="Requirements push" />
+    <option name="LAST_COMMIT_MESSAGE" value="Requirements push" />
   </component>
 </project>
