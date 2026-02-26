@@ -12,14 +12,24 @@ from src.models.Default.feedback import rerank_with_star, save_star
 # ---------------------------
 # Config
 # ---------------------------
+# ---------------------------
+# Config
+# ---------------------------
+import os
+
 CSV_PATH = r"C:\Users\cbran\PycharmProjects\8XPTuDF1AleElmm6\data\raw\potential-talents - Aspiring human resources - seeking human resources.csv"
 STAR_PATH = r"C:\Users\cbran\PycharmProjects\8XPTuDF1AleElmm6\src\models\Default\artifacts\starred.json"
 
-# Reference Ollama model
-OLLAMA_URL = "http://127.0.0.1:11434/api/chat"
-MODEL = "qwen2.5:3b-instruct"
+# --- Ollama ---
+# Set these in your shell if needed:
+#   set OLLAMA_HOST=http://127.0.0.1:11434
+#   set OLLAMA_MODEL=qwen2.5:3b-instruct
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/")
+MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:3b-instruct")
 
-# Order ranking priority
+OLLAMA_CHAT_URL = f"{OLLAMA_HOST}/api/chat"
+OLLAMA_TAGS_URL = f"{OLLAMA_HOST}/api/tags"
+
 ID_COL_PRIORITY = ["id", "candidate_id", "CandidateID", "candidateId"]
 SCORE_COL_PRIORITY = ["score", "base_fit", "fit", "kw_sim", "final_score", "rank_score"]
 
@@ -27,18 +37,41 @@ SCORE_COL_PRIORITY = ["score", "base_fit", "fit", "kw_sim", "final_score", "rank
 # ---------------------------
 # Ollama helpers
 # ---------------------------
-def ollama_chat(messages: List[Dict[str, str]], timeout_s: int = 120) -> str:
-    payload = {"model": MODEL, "messages": messages, "stream": False}
+def ollama_health(timeout_s: float = 1.5) -> bool:
     try:
-        r = requests.post(OLLAMA_URL, json=payload, timeout=timeout_s)
+        r = requests.get(OLLAMA_TAGS_URL, timeout=timeout_s)
+        return r.ok
+    except requests.RequestException:
+        return False
+
+
+def ollama_chat(messages: List[Dict[str, str]], timeout_s: int = 120, model: Optional[str] = None) -> str:
+    model = model or MODEL
+    payload = {"model": model, "messages": messages, "stream": False}
+
+    # Fast fail with a helpful message
+    if not ollama_health():
+        raise RuntimeError(
+            f"Ollama not reachable at {OLLAMA_HOST} (tested {OLLAMA_TAGS_URL}).\n"
+            f"- Start it: `ollama serve`\n"
+            f"- Verify it works: open {OLLAMA_TAGS_URL} in a browser\n"
+            f"- Ensure model is pulled: `ollama pull {model}`\n"
+            f"- If Streamlit is in Docker/WSL, set OLLAMA_HOST to the host address "
+            f"(e.g., Docker: http://host.docker.internal:11434)."
+        )
+
+    try:
+        r = requests.post(OLLAMA_CHAT_URL, json=payload, timeout=timeout_s)
         r.raise_for_status()
-        return r.json()["message"]["content"]
+        data = r.json()
+        return (data.get("message") or {}).get("content", "")
     except requests.exceptions.RequestException as e:
         raise RuntimeError(
-            f"Ollama not reachable at {OLLAMA_URL}. "
-            f"Make sure Ollama is running and the model is pulled. "
+            f"Ollama call failed at {OLLAMA_CHAT_URL} using model '{model}'. "
             f"Original error: {e}"
         )
+    except (ValueError, KeyError, TypeError) as e:
+        raise RuntimeError(f"Unexpected Ollama response format: {e}")
 
 
 # ---------------------------

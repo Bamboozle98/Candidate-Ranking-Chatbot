@@ -219,27 +219,26 @@ if prompt:
                 tool_result["top"] = st.session_state.memory["results"][:top_n]
 
         elif tool == "rerank":
-            n = extract_int_id(prompt)
-            if n is not None:
-                args["starred_id"] = n
-            if "score" not in st.session_state.memory["df_scored"].columns:
-                tool_result = {"ok": False,
-                               "error": "Cannot rerank because df_scored has no 'score' column. Rank first (or fix scoring pipeline)."}
-            else:
-                starred_id = int(args.get("starred_id"))
-                ...
-
             if st.session_state.memory.get("df_scored") is None:
                 tool_result = {"ok": False, "error": "No scored dataframe yet. Rank first."}
             else:
-                starred_id = int(args.get("starred_id"))
-                job_title = st.session_state.memory.get("job_title","")
-                results, df_r = rerank_candidates(job_title, st.session_state.memory["df_scored"], starred_id)
-                st.session_state.memory["results"] = results
-                st.session_state.memory["df_scored"] = df_r
-                tool_result["starred_id"] = starred_id
-                tool_result["top10"] = results[:10]
-                save_snapshot("rerank", job_title, results, label=f"rerank star {starred_id}")
+                n = extract_int_id(prompt)
+                if n is not None:
+                    args["starred_id"] = n
+                starred_id = args.get("starred_id")
+                if starred_id is None:
+                    tool_result = {"ok": False, "error": "Provide an id to star, e.g. 'rerank 123'."}
+                elif "score" not in st.session_state.memory["df_scored"].columns:
+                    tool_result = {"ok": False,
+                                   "error": "df_scored has no 'score' column. Rank first (or fix scoring pipeline)."}
+                else:
+                    job_title = st.session_state.memory.get("job_title", "")
+                    results, df_r = rerank_candidates(job_title, st.session_state.memory["df_scored"], int(starred_id))
+                    st.session_state.memory["results"] = results
+                    st.session_state.memory["df_scored"] = df_r
+                    tool_result["starred_id"] = int(starred_id)
+                    tool_result["top10"] = results[:10]
+                    save_snapshot("rerank", job_title, results, label=f"rerank star {starred_id}")
 
         else:
             tool_result = {"ok": False, "error": f"Unknown tool: {tool}"}
