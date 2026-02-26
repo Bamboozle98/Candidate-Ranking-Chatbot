@@ -12,9 +12,7 @@ from src.models.Default.feedback import rerank_with_star, save_star
 # ---------------------------
 # Config
 # ---------------------------
-# ---------------------------
-# Config
-# ---------------------------
+
 import os
 
 CSV_PATH = r"C:\Users\cbran\PycharmProjects\8XPTuDF1AleElmm6\data\raw\potential-talents - Aspiring human resources - seeking human resources.csv"
@@ -103,6 +101,7 @@ SYSTEM_FORMATTER = """You are a helpful assistant in a candidate ranking app.
 Rules:
 - Do NOT print or restate the ranked list (IDs/scores). The UI already shows it.
 - Do NOT invent any candidate attributes.
+- Do NOT say what actions you will take next. 
 - Write 1–3 short sentences:
   1) confirm what you did (rank/rerank/show) using the given job_title and any constraints
   2) if rerank: mention the starred_id used
@@ -242,20 +241,27 @@ def rerank_candidates(job_title: str, df_scored: pd.DataFrame, starred_id: int):
         alpha=0.4
     )
 
-    # ---- Ensure we have a score input column ----
-    # If rerank_with_star already produced "score", great.
-    # Otherwise map whichever column it produced into "score".
-    if "score" not in df_r_full.columns:
-        # Common patterns — adjust if your rerank_with_star uses a different name
-        if "rerank_score" in df_r_full.columns:
-            df_r_full["score"] = df_r_full["rerank_score"]
-        elif "final_score" in df_r_full.columns:
-            df_r_full["score"] = df_r_full["final_score"]
-        elif "base_fit" in df_r_full.columns:
-            # fallback: use pre-existing score signal
-            df_r_full["score"] = df_r_full["base_fit"]
-        else:
-            raise ValueError(f"rerank_with_star did not output a score column. Columns: {list(df_r_full.columns)}")
+    # ---- Ensure we use the correct score column after rerank ----
+    # Always prefer reranked score signals over the original base score.
+
+    if "final_score" in df_r_full.columns:
+        df_r_full["score"] = df_r_full["final_score"]
+
+    elif "rerank_score" in df_r_full.columns:
+        df_r_full["score"] = df_r_full["rerank_score"]
+
+    elif "combined_score" in df_r_full.columns:  # optional extra safeguard
+        df_r_full["score"] = df_r_full["combined_score"]
+
+    elif "base_fit" in df_r_full.columns:
+        # fallback to whatever score-like signal exists
+        df_r_full["score"] = df_r_full["base_fit"]
+
+    elif "score" not in df_r_full.columns:
+        raise ValueError(
+            f"rerank_with_star did not output a usable score column. "
+            f"Columns: {list(df_r_full.columns)}"
+        )
 
     # Normalize (if normalize_scored_df also renames/overwrites score, that's fine)
     df_norm, _, _ = normalize_scored_df(df_r_full)
