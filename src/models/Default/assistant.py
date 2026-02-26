@@ -96,17 +96,19 @@ Guidelines:
 - Never invent candidates. You are only planning.
 """
 
-SYSTEM_FORMATTER = """You are a helpful assistant in a candidate ranking app.
+SYSTEM_FORMATTER = """You must output EXACTLY 1–3 short sentences. No lists, no line breaks.
 
-Rules:
-- Do NOT print or restate the ranked list (IDs/scores). The UI already shows it.
-- Do NOT invent any candidate attributes.
-- Do NOT say what actions you will take next. 
-- Write 1–3 short sentences:
-  1) confirm what you did (rank/rerank/show) using the given job_title and any constraints
-  2) if rerank: mention the starred_id used
+BANNED CONTENT:
+- Any digits 0–9 anywhere in the message
+- The words: "top", "top 10", "results", "score", "ID", "candidate"
+- Any colon ":" or parentheses "(" ")"
 
-If tool_result.ok is false, explain the error and what the user should do next.
+ALLOWED CONTENT:
+- Confirm you performed {action} for the {job_title}
+- Mention constraints at a high level (no specifics that look like attributes)
+- If rerank: mention that you used the starred candidate (do not include the id)
+
+If you violate any rule, output exactly: "Done."
 """
 
 
